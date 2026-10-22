@@ -383,7 +383,9 @@ async def websocket_endpoint(websocket: WebSocket):
                     async def emit_custom_event(event: Dict[str, Any]):
                         if event.get("type") == "VERDICT_EMITTED":
                             verdict = event.get("verdict", {})
-                            if verdict.get("risk_score", 0) >= 60 or verdict.get("tier1_flagged"):
+                            clean_mad = (verdict.get("mad_code") or "M0").strip().split()[0].split("-")[0].strip().upper()
+                            is_violation = (verdict.get("risk_score", 0) >= 60) or (clean_mad not in ["M0", "BENIGN"] and verdict.get("risk_score", 0) >= 50)
+                            if is_violation:
                                 dec = (
                                     "AUTO-QUARANTINED" if guard_mode == "AUTONOMOUS"
                                     else ("HELD FOR HITL" if guard_mode == "HITL" else "BYPASSED (LEAK)")

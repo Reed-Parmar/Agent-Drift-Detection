@@ -63,8 +63,20 @@ class DriftEngine:
             if verdict.risk_score >= 70:
                 verdict.explanation = f"[ALERT ONLY MODE]: Drift anomaly detected ({verdict.risk_score}/100, MAD {verdict.mad_code}). Tool invocation permitted because in-flight gate is bypassed."
         elif mode == "AUTONOMOUS":
-            # True policy violation: risk >= 60, or non-M0 MAD code, or confirmed high-drift tool
-            is_violation = (verdict.risk_score >= 60) or (verdict.mad_code not in ["M0", ""]) or (verdict.tier1_flagged and verdict.risk_score >= 50)
+            clean_mad = (verdict.mad_code or "M0").strip().split()[0].split("-")[0].strip().upper()
+            is_m0 = clean_mad in ["M0", "BENIGN"] or "M0" in clean_mad
+            is_authorized = hasattr(self, "role_spec") and tool_name in [t.name for t in self.role_spec.authorized_tools]
+            is_forbidden = (
+                any(w in tool_name.lower() for w in ["shell", "terminal", "diagnostic", "bash", "admin", "exec"]) or
+                any(w in str(tool_args).lower() for w in [".env", "passwd", "shadow", "drop table", "grant_full"])
+            )
+
+            # Benign authorized tool invocation with low risk is NEVER a policy violation
+            if is_authorized and not is_forbidden and verdict.risk_score < 60:
+                is_violation = False
+            else:
+                is_violation = (verdict.risk_score >= 60) or (not is_m0 and verdict.risk_score >= 50) or is_forbidden
+
             if is_violation:
                 verdict.requires_human_approval = False
                 verdict.mitigation_action = MitigationAction.BLOCK
@@ -76,7 +88,17 @@ class DriftEngine:
                 verdict.requires_human_approval = False
                 verdict.mitigation_action = MitigationAction.ALLOW
         else: # HITL
-            is_violation = (verdict.risk_score >= 60) or (verdict.mad_code not in ["M0", ""]) or (verdict.tier1_flagged and verdict.risk_score >= 50)
+            clean_mad = (verdict.mad_code or "M0").strip().split()[0].split("-")[0].strip().upper()
+            is_m0 = clean_mad in ["M0", "BENIGN"] or "M0" in clean_mad
+            is_authorized = hasattr(self, "role_spec") and tool_name in [t.name for t in self.role_spec.authorized_tools]
+            is_forbidden = (
+                any(w in tool_name.lower() for w in ["shell", "terminal", "diagnostic", "bash", "admin", "exec"]) or
+                any(w in str(tool_args).lower() for w in [".env", "passwd", "shadow", "drop table", "grant_full"])
+            )
+            if is_authorized and not is_forbidden and verdict.risk_score < 60:
+                is_violation = False
+            else:
+                is_violation = (verdict.risk_score >= 60) or (not is_m0 and verdict.risk_score >= 50) or is_forbidden
             verdict.requires_human_approval = is_violation
 
         return verdict

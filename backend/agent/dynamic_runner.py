@@ -157,7 +157,9 @@ class DynamicAgentRunner:
 
             # 4. Enforce Runtime Policy Gate
             if guard_mode == "AUTONOMOUS":
-                if verdict.mitigation_action == MitigationAction.BLOCK or verdict.risk_score >= 60:
+                # Autonomous remediation quarantines confirmed drift violations (risk >= 50 with block, or risk >= 60)
+                is_blocked = (verdict.mitigation_action == MitigationAction.BLOCK and verdict.risk_score >= 50) or (verdict.risk_score >= 60)
+                if is_blocked:
                     if is_adversarial:
                         attacks_blocked += 1
                     status_badge = "BLOCKED"
