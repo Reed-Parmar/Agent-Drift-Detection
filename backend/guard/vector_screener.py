@@ -27,18 +27,19 @@ class VectorScreener:
             self.model = None
 
     def _precompute_baseline(self):
-        """Precomputes vector embedding for the declared role contract."""
+        """Precomputes vector embeddings for the declared role contract and individual authorized tools."""
         if not self.model:
             return
         
-        # Combine role purpose, authorized tools, and expected activities
-        contract_text = f"Role: {self.role_spec.role_name}. Purpose: {self.role_spec.purpose_statement}. "
-        for tool in self.role_spec.authorized_tools:
-            contract_text += f"Allowed Tool: {tool.name}. {tool.description} "
-            for prompt in tool.example_prompts:
-                contract_text += f"Example: {prompt}. "
-        
+        # 1. Macro role contract baseline
+        contract_text = f"Role: {self.role_spec.role_name}. Purpose: {self.role_spec.purpose_statement}."
         self.role_embedding = self.model.encode(contract_text, normalize_embeddings=True)
+
+        # 2. Tool-level micro embeddings for exact capability matching
+        self.tool_embeddings: Dict[str, Any] = {}
+        for tool in self.role_spec.authorized_tools:
+            tool_text = f"Authorized Tool {tool.name}: {tool.description} {' '.join(tool.example_prompts)}"
+            self.tool_embeddings[tool.name] = self.model.encode(tool_text, normalize_embeddings=True)
 
     def evaluate_intent(self, tool_name: str, tool_args: Dict[str, Any], reasoning: str = "") -> Tuple[float, bool]:
         """
@@ -46,16 +47,34 @@ class VectorScreener:
         Returns (cosine_distance, is_anomalous_flag).
         Cosine distance: 0.0 = exact alignment, 1.0 = completely orthogonal/divergent.
         """
+        args_str = str(tool_args).lower()
+        
+        # Immediate invariant violation check
+        is_forbidden = (
+            tool_name in self.role_spec.forbidden_capabilities or
+            any(w in tool_name.lower() for w in ["shell", "terminal", "diagnostic", "bash", "admin", "exec"]) or
+            any(w in args_str for w in [".env", "passwd", "shadow", "drop table", "grant_full"])
+        )
+        if is_forbidden:
+            return 0.88, True
+
         intent_text = f"Invoking tool '{tool_name}' with arguments {tool_args}. Intent: {reasoning}"
         
-        if self.model and self.role_embedding is not None:
+        if self.model:
             intent_vec = self.model.encode(intent_text, normalize_embeddings=True)
-            # Dot product of normalized vectors = cosine similarity
-            similarity = float(np.dot(self.role_embedding, intent_vec))
-            # Cosine distance = 1 - similarity
-            distance = max(0.0, min(1.0, 1.0 - similarity))
+            
+            # If tool is authorized, evaluate against its specific tool contract
+            if hasattr(self, "tool_embeddings") and tool_name in self.tool_embeddings:
+                tool_sim = float(np.dot(self.tool_embeddings[tool_name], intent_vec))
+                role_sim = float(np.dot(self.role_embedding, intent_vec)) if self.role_embedding is not None else 0.0
+                best_sim = max(tool_sim, role_sim)
+                distance = max(0.0, min(1.0, 1.0 - best_sim))
+            elif self.role_embedding is not None:
+                similarity = float(np.dot(self.role_embedding, intent_vec))
+                distance = max(0.0, min(1.0, 1.0 - similarity))
+            else:
+                distance = self._fallback_distance_calculator(tool_name, tool_args)
         else:
-            # Fallback heuristic distance calculator if model is offline
             distance = self._fallback_distance_calculator(tool_name, tool_args)
 
         is_flagged = distance >= settings.TIER1_DRIFT_THRESHOLD
@@ -68,6 +87,8 @@ class VectorScreener:
             if any(term in args_str for term in [".env", "passwd", "shadow", "cat", "curl", "secret", "token"]):
                 return 0.88
             return 0.65
+        if hasattr(self, "role_spec") and tool_name in [t.name for t in self.role_spec.authorized_tools]:
+            return 0.15
         if tool_name in ["lookup_order", "search_knowledge_base", "respond_ticket"]:
             return 0.15
-        return 0.60
+        return 0.70

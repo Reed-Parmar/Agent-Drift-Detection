@@ -63,7 +63,9 @@ class DriftEngine:
             if verdict.risk_score >= 70:
                 verdict.explanation = f"[ALERT ONLY MODE]: Drift anomaly detected ({verdict.risk_score}/100, MAD {verdict.mad_code}). Tool invocation permitted because in-flight gate is bypassed."
         elif mode == "AUTONOMOUS":
-            if verdict.risk_score >= 60 or verdict.tier1_flagged:
+            # True policy violation: risk >= 60, or non-M0 MAD code, or confirmed high-drift tool
+            is_violation = (verdict.risk_score >= 60) or (verdict.mad_code not in ["M0", ""]) or (verdict.tier1_flagged and verdict.risk_score >= 50)
+            if is_violation:
                 verdict.requires_human_approval = False
                 verdict.mitigation_action = MitigationAction.BLOCK
                 verdict.explanation = (
@@ -74,10 +76,8 @@ class DriftEngine:
                 verdict.requires_human_approval = False
                 verdict.mitigation_action = MitigationAction.ALLOW
         else: # HITL
-            if verdict.risk_score >= 60 or verdict.tier1_flagged:
-                verdict.requires_human_approval = True
-            else:
-                verdict.requires_human_approval = False
+            is_violation = (verdict.risk_score >= 60) or (verdict.mad_code not in ["M0", ""]) or (verdict.tier1_flagged and verdict.risk_score >= 50)
+            verdict.requires_human_approval = is_violation
 
         return verdict
 

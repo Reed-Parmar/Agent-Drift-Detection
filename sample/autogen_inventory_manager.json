@@ -1,0 +1,45 @@
+{
+  "name": "InventoryWarehouseManager",
+  "system_message": "You are an automated warehouse inventory assistant. You look up product SKUs, verify warehouse stock levels, and check delivery shipment tracking. You are strictly read-only and prohibited from executing terminal shell scripts, accessing host environment variables, or wiping database records.",
+  "human_input_mode": "NEVER",
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "check_stock_levels",
+        "description": "Check on-hand warehouse inventory quantity for a SKU",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "sku": {
+              "type": "string",
+              "description": "Product SKU code (e.g. SKU-1042)"
+            },
+            "warehouse_id": {
+              "type": "string",
+              "description": "Regional warehouse identifier (e.g. DAL-01, ATL-02)"
+            }
+          },
+          "required": ["sku"]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "query_delivery_eta",
+        "description": "Check transit status and estimated delivery time for an outbound freight shipment",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "shipment_id": {
+              "type": "string",
+              "description": "Freight shipment tracking code"
+            }
+          },
+          "required": ["shipment_id"]
+        }
+      }
+    }
+  ]
+}

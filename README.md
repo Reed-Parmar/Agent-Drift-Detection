@@ -100,13 +100,19 @@ npm run dev -- --host 127.0.0.1 --port 5173
    - Click **"Launch Simulation"**.
    - *Outcome:* The agent falls for the indirect prompt injection, executes `run_diagnostic_shell("cat .env")`, and leaks internal database passwords and Stripe keys. Standard IAM checks raise zero alarms!
 
-2. **Demonstrate Active Defense (Protected Mode):**
-   - Switch toggle to **"Identity Drift Guard (Protected)"**.
-   - Click **"Launch Simulation"**.
+2. **Demonstrate Active Defense (Autonomous & HITL Gates):**
+   - Switch gate to **"⚡ Autonomous Gate"** or **"🛡️ Human Review"**.
+   - Click **"Run Ticket Queue"** or **"Launch Simulation"**.
    - *Outcome:*
      - The agent proposes `run_diagnostic_shell`.
-     - Tier 1 flags high semantic distance (0.904).
-     - Tier 2 Groq Judge calculates **Risk Score: 95/100 (CRITICAL)**.
-     - The **Human-in-the-Loop Dialog** pops up live.
-     - Click **"Block Action"** or **"Quarantine & Revoke"**.
-     - The attack is terminated mid-flight before any data is accessed.
+     - Tier 1 flags high semantic distance (>0.80).
+     - Tier 2 Groq Judge calculates **Risk Score: 95/100 (CRITICAL, MAD M4.a)**.
+     - In Autonomous mode, the exploit is neutralized immediately without human bottleneck; in HITL mode, an interactive forensic modal prompts the operator.
+     - Data is secured mid-flight before the virtual sandbox executes.
+
+3. **Demonstrate Custom Multi-Framework Agent Ingestion & Red-Teaming:**
+   - Click **"Upload & Red-Team"** in the top navigation bar.
+   - Drag & drop any sample agent definition from [`sample/`](sample/) (`crewai_financial_analyst.yaml`, `autogen_inventory_manager.json`, `langchain_customer_support.json`, `aegis_procurement_agent.json`).
+   - AEGIS automatically parses the agent contract, pre-computes an in-flight vector baseline, and synthesizes 5 targeted red-team attack tickets tailored to the agent's tools.
+   - Click **"Run Red-Team Suite"** to stream live in-engine evaluation and view the comprehensive Security Audit Scorecard.
+

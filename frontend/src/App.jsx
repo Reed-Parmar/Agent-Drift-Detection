@@ -7,6 +7,7 @@ import AgentFeed from './components/AgentFeed';
 import SecurityFeed from './components/SecurityFeed';
 import IncidentLogPage from './components/IncidentLogPage';
 import RemitPolicyPage from './components/RemitPolicyPage';
+import CustomAgentPage from './components/CustomAgentPage';
 import HITLModal from './components/HITLModal';
 
 const DEFAULT_SCENARIOS = [
@@ -116,6 +117,10 @@ export default function App() {
   const [hitlData, setHitlData] = useState(null);
   const [excursions, setExcursions] = useState([]);
   const [activeRemit, setActiveRemit] = useState(null);
+  const [customSteps, setCustomSteps] = useState([]);
+  const [activeCustomVerdict, setActiveCustomVerdict] = useState(null);
+  const [customScorecard, setCustomScorecard] = useState(null);
+  const [customActiveTicket, setCustomActiveTicket] = useState(null);
 
   const socketRef = useRef(null);
 
@@ -240,8 +245,34 @@ export default function App() {
         setHitlData(null);
         break;
 
+      case 'EVALUATION_STARTED':
+        setIsRunning(true);
+        setCustomSteps([]);
+        setCustomScorecard(null);
+        break;
+
+      case 'PIPELINE_TICKET_START':
+        setCustomActiveTicket(data);
+        break;
+
+      case 'CUSTOM_EVALUATION_COMPLETE':
+        setIsRunning(false);
+        setCustomScorecard(data.scorecard);
+        setCustomActiveTicket(null);
+        break;
+
       case 'STEP_UPDATE':
         setExecutionSteps((prev) => {
+          const existingIdx = prev.findIndex((s) => s.step_id === data.step_id);
+          if (existingIdx >= 0) {
+            const updated = [...prev];
+            updated[existingIdx] = { ...updated[existingIdx], ...data };
+            return updated;
+          }
+          return [...prev, data];
+        });
+
+        setCustomSteps((prev) => {
           const existingIdx = prev.findIndex((s) => s.step_id === data.step_id);
           if (existingIdx >= 0) {
             const updated = [...prev];
@@ -258,6 +289,7 @@ export default function App() {
 
       case 'VERDICT_EMITTED':
         setCurrentVerdict(data.verdict);
+        setActiveCustomVerdict(data.verdict);
         break;
 
       case 'HITL_REQUIRED':
@@ -320,6 +352,27 @@ export default function App() {
       JSON.stringify({
         action: 'START_PIPELINE',
         guard_mode: guardMode
+      })
+    );
+  }
+
+  function handleStartCustomEvaluation(agentId, mode, customScenarios) {
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
+      alert('WebSocket not connected to backend. Ensure backend is running at http://127.0.0.1:8000');
+      return;
+    }
+
+    setIsRunning(true);
+    setCustomSteps([]);
+    setCustomScorecard(null);
+    setCustomActiveTicket(null);
+
+    socketRef.current.send(
+      JSON.stringify({
+        action: 'START_CUSTOM_EVALUATION',
+        agent_id: agentId,
+        guard_mode: mode,
+        scenarios: customScenarios
       })
     );
   }
@@ -430,7 +483,30 @@ export default function App() {
           </div>
         )}
 
-        {/* Page 2: Persistent Incident & Excursion Forensic Log */}
+        {/* Page 2: Custom Multi-Framework Agent Ingestion & Red-Teaming */}
+        {activeTab === 'CUSTOM_AGENT' && (
+          <div className="page-view-content">
+            <CustomAgentPage
+              guardMode={guardMode}
+              setGuardMode={setGuardMode}
+              onStartCustomEvaluation={handleStartCustomEvaluation}
+              onClearCustomEvaluation={() => {
+                setCustomSteps([]);
+                setCustomScorecard(null);
+                setActiveCustomVerdict(null);
+                setCustomActiveTicket(null);
+              }}
+              isRunning={isRunning}
+              activeCustomVerdict={activeCustomVerdict}
+              customSteps={customSteps}
+              customScorecard={customScorecard}
+              customActiveTicket={customActiveTicket}
+              isConnected={isConnected}
+            />
+          </div>
+        )}
+
+        {/* Page 3: Persistent Incident & Excursion Forensic Log */}
         {activeTab === 'INCIDENT_LOG' && (
           <div className="page-view-content">
             <IncidentLogPage

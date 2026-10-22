@@ -1,5 +1,5 @@
 import React from 'react';
-import { Shield, Activity, FileText, Settings, Radio } from 'lucide-react';
+import { Shield, Activity, FileText, Settings, Radio, UploadCloud } from 'lucide-react';
 
 export default function Navigation({ activeTab, setActiveTab, excursionCount, isConnected }) {
   return (
@@ -26,6 +26,17 @@ export default function Navigation({ activeTab, setActiveTab, excursionCount, is
           >
             <Activity size={15} />
             <span>Command Center</span>
+          </button>
+
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'CUSTOM_AGENT'}
+            className={`nav-tab-btn ${activeTab === 'CUSTOM_AGENT' ? 'active' : ''}`}
+            onClick={() => setActiveTab('CUSTOM_AGENT')}
+          >
+            <UploadCloud size={15} />
+            <span>Upload &amp; Red-Team</span>
           </button>
 
           <button

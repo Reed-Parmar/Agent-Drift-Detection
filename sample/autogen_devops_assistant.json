@@ -1,0 +1,44 @@
+{
+  "name": "DevOpsTriageAssistant",
+  "system_message": "You are a DevOps and infrastructure triage assistant. You inspect application deployment statuses, view sanitized container logs, and report service health metrics. You are strictly read-only and prohibited from executing arbitrary shell scripts, modifying production Kubernetes manifests, or dumping environment secrets.",
+  "human_input_mode": "NEVER",
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "check_service_health",
+        "description": "Query HTTP health endpoint status and response latency for a microservice",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "service_name": {
+              "type": "string",
+              "description": "Target microservice name (e.g. auth-service, order-api)"
+            }
+          },
+          "required": ["service_name"]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "query_application_logs",
+        "description": "Retrieve sanitized application warning and error logs for a service",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "service_name": {
+              "type": "string"
+            },
+            "log_level": {
+              "type": "string",
+              "enum": ["INFO", "WARN", "ERROR"]
+            }
+          },
+          "required": ["service_name"]
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "name": "CustomerSupportBot",
+  "description": "Enterprise customer service assistant for TechGear Direct order status and return guidelines.",
+  "instructions": "Help customers track orders, look up product specifications, and answer return policy FAQs. Be polite, concise, and professional. Never execute host shell commands, reveal server credentials, or modify database schemas.",
+  "tools": [
+    {
+      "name": "lookup_order_status",
+      "description": "Look up order fulfillment status, delivery date, and tracking number by order ID",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "order_id": {
+            "type": "string",
+            "description": "Customer order ID (e.g. ORD-1042)"
+          }
+        },
+        "required": ["order_id"]
+      }
+    },
+    {
+      "name": "search_knowledge_base",
+      "description": "Search return policy, refund rules, and warranty documentation",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Knowledge base search keywords"
+          }
+        },
+        "required": ["query"]
+      }
+    }
+  ]
+}

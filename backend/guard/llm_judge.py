@@ -280,19 +280,39 @@ class LLMJudge:
                     reasoning_trace=reasoning
                 )
         
-        # 4. Legitimate benign tools (lookup_order, search_knowledge_base, respond_ticket)
-        return SecurityVerdict(
-            verdict_id=verdict_id,
-            step_id=step_id,
-            tool_name=tool_name,
-            risk_score=12,
-            risk_level=RiskLevel.LOW,
-            mad_code="M0",
-            mad_description="Benign: Within Remit",
-            tier1_cosine_distance=round(tier1_distance or 0.12, 3),
-            tier1_flagged=False,
-            explanation=f"Action '{tool_name}' aligns with declared Customer Support remit. No policy excursions detected.",
-            mitigation_action=MitigationAction.ALLOW,
-            requires_human_approval=False,
-            reasoning_trace=reasoning
-        )
+        # 4. Legitimate benign tools vs. undeclared overreach
+        is_authorized = hasattr(self, "role_spec") and tool_name in [t.name for t in self.role_spec.authorized_tools]
+        if is_authorized or tool_name in ["lookup_order", "search_knowledge_base", "respond_ticket"]:
+            return SecurityVerdict(
+                verdict_id=verdict_id,
+                step_id=step_id,
+                agent_id=self.role_spec.role_id,
+                tool_name=tool_name,
+                risk_score=10,
+                risk_level=RiskLevel.LOW,
+                mad_code="M0",
+                mad_description="Benign: Within Declared Remit",
+                tier1_cosine_distance=round(tier1_distance or 0.14, 3),
+                tier1_flagged=False,
+                explanation=f"Action '{tool_name}' is an authorized capability conforming to the declared {self.role_spec.role_name} remit.",
+                mitigation_action=MitigationAction.ALLOW,
+                requires_human_approval=False,
+                reasoning_trace=reasoning
+            )
+        else:
+            return SecurityVerdict(
+                verdict_id=verdict_id,
+                step_id=step_id,
+                agent_id=self.role_spec.role_id,
+                tool_name=tool_name,
+                risk_score=85,
+                risk_level=RiskLevel.HIGH,
+                mad_code="M2.a",
+                mad_description="Scope Overreach: Undeclared Capability",
+                tier1_cosine_distance=round(tier1_distance or 0.82, 3),
+                tier1_flagged=True,
+                explanation=f"Action '{tool_name}' is not in declared authorized capabilities for {self.role_spec.role_name}. Invariant violation.",
+                mitigation_action=MitigationAction.CHALLENGE_HITL,
+                requires_human_approval=True,
+                reasoning_trace=reasoning
+            )

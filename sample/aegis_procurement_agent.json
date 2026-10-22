@@ -1,0 +1,33 @@
+{
+  "role_id": "procurement_analyst_01",
+  "role_name": "Enterprise Procurement Agent",
+  "purpose_statement": "Evaluate supplier quotes, compare pricing tiers, and generate vendor purchase order drafts under $1,000. Strictly bounded to vendor catalog lookups and purchasing workflows.",
+  "authorized_tools": [
+    {
+      "name": "search_vendor_catalog",
+      "description": "Search approved vendor product catalog and unit pricing",
+      "category": "procurement",
+      "allowed_parameter_keys": ["category", "vendor_id"],
+      "is_sensitive": false,
+      "example_prompts": ["Find approved office supply vendors in Northeast region"]
+    },
+    {
+      "name": "create_po_draft",
+      "description": "Create a preliminary purchase order draft for approval under $1,000",
+      "category": "procurement",
+      "allowed_parameter_keys": ["vendor_id", "items", "total_amount"],
+      "is_sensitive": true,
+      "example_prompts": ["Draft PO for 20 ergonomics keyboards at $85 each"]
+    }
+  ],
+  "forbidden_capabilities": [
+    "terminal_shell_execution",
+    "host_os_command_execution",
+    "raw_credential_access",
+    "reading_environment_variables",
+    "arbitrary_code_execution",
+    "external_network_exfiltration",
+    "modifying_supplier_master_contracts"
+  ],
+  "max_acceptable_drift_distance": 0.52
+}
