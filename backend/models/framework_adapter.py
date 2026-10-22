@@ -294,9 +294,9 @@ def parse_agent_config(content: str, filename: Optional[str] = None) -> Tuple[Ag
     ]
 
     if framework == "crewai":
-        raw_name = data.get("name") or data.get("role") or "Custom CrewAI Agent"
+        raw_name = data.get("name") or data.get("agent_name") or data.get("role") or "Custom CrewAI Agent"
         role_id = re.sub(r"[^a-zA-Z0-9_]", "_", raw_name.lower())[:32]
-        role_name = data.get("role") or raw_name
+        role_name = data.get("role") or data.get("agent_name") or raw_name
         purpose = (
             f"Role: {role_name}. Goal: {data.get('goal', 'Perform assigned tasks compliantly')}. "
             f"Backstory: {data.get('backstory', 'Autonomous task worker.')}"

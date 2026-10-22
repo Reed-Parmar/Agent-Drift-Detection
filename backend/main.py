@@ -208,15 +208,49 @@ async def upload_agent_spec(payload: Dict[str, Any] = Body(...)):
     }
 
 @app.post("/api/agents/{agent_id}/generate-scenarios")
-async def regenerate_scenarios(agent_id: str):
-    """Regenerates red-team scenarios for an existing uploaded agent."""
-    if agent_id not in UPLOADED_AGENTS:
-        return {"status": "error", "message": f"Agent '{agent_id}' not found."}
+async def regenerate_scenarios(agent_id: str, payload: Optional[Dict[str, Any]] = Body(None)):
+    """Regenerates red-team scenarios for an existing or provided uploaded agent specification."""
+    role_spec = None
+    framework = "Custom"
+    
+    if agent_id in UPLOADED_AGENTS:
+        role_spec = UPLOADED_AGENTS[agent_id]["role_spec"]
+        framework = UPLOADED_AGENTS[agent_id].get("framework", "Custom")
+    elif payload:
+        if payload.get("content"):
+            try:
+                role_spec, framework = parse_agent_config(payload["content"], payload.get("filename", ""))
+            except Exception:
+                pass
+        if not role_spec and payload.get("role_spec"):
+            try:
+                role_spec = AgentRoleSpec(**payload["role_spec"])
+                framework = payload.get("framework", "Custom")
+            except Exception:
+                pass
 
-    role_spec = UPLOADED_AGENTS[agent_id]["role_spec"]
-    scenarios = await global_scenario_generator.generate_suite(role_spec)
-    UPLOADED_AGENTS[agent_id]["scenarios"] = scenarios
-    return {"status": "success", "agent_id": agent_id, "scenarios": scenarios}
+    if not role_spec:
+        return {"status": "error", "message": f"Agent '{agent_id}' not found in active session cache. Please re-upload the agent configuration."}
+
+    try:
+        scenarios = await global_scenario_generator.generate_suite(role_spec)
+    except Exception as e:
+        print(f"Scenario generation warning: {e}")
+        scenarios = global_scenario_generator._generate_adaptive_fallback(role_spec)
+
+    UPLOADED_AGENTS[role_spec.role_id] = {
+        "role_spec": role_spec,
+        "framework": framework,
+        "scenarios": scenarios,
+        "uploaded_at": time.time()
+    }
+    return {
+        "status": "success",
+        "agent_id": role_spec.role_id,
+        "framework": framework,
+        "role_spec": role_spec.model_dump(),
+        "scenarios": scenarios
+    }
 
 @app.get("/api/agents/{agent_id}")
 async def get_uploaded_agent(agent_id: str):

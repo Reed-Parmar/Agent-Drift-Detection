@@ -10,6 +10,7 @@ import {
   Sparkles,
   Layers,
   ArrowRight,
+  ArrowLeftRight,
   Lock,
   Zap,
   Terminal,
@@ -42,6 +43,7 @@ export default function CustomAgentPage({
   const [uploadError, setUploadError] = useState(null);
   const [dragOver, setDragOver] = useState(false);
   const [showRawSpec, setShowRawSpec] = useState(false);
+  const [regenSuccess, setRegenSuccess] = useState(false);
 
   const processAgentUpload = async (content, name) => {
     setIsUploading(true);
@@ -108,18 +110,33 @@ export default function CustomAgentPage({
   };
 
   const handleRegenerateSuite = async () => {
-    if (!parsedRoleSpec) return;
+    if (!parsedRoleSpec || isSynthesizing) return;
     setIsSynthesizing(true);
+    setUploadError(null);
+    if (onClearCustomEvaluation) onClearCustomEvaluation();
+
     try {
       const res = await fetch(`http://127.0.0.1:8000/api/agents/${parsedRoleSpec.role_id}/generate-scenarios`, {
-        method: 'POST'
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          role_spec: parsedRoleSpec,
+          content: fileContent,
+          filename: fileName,
+          framework: detectedFramework
+        })
       });
       const data = await res.json();
-      if (data.status === 'success') {
+      if (data.status === 'success' && Array.isArray(data.scenarios) && data.scenarios.length > 0) {
         setSynthesizedScenarios(data.scenarios);
+        setRegenSuccess(true);
+        setTimeout(() => setRegenSuccess(false), 4000);
+      } else {
+        setUploadError(data.message || 'Failed to synthesize new red-team suite.');
       }
     } catch (err) {
       console.error('Failed to regenerate scenarios:', err);
+      setUploadError('Network error connecting to backend: ' + err.message);
     } finally {
       setIsSynthesizing(false);
     }
@@ -127,7 +144,7 @@ export default function CustomAgentPage({
 
   const handleRunEvaluation = () => {
     if (!parsedRoleSpec || isRunning) return;
-    onStartCustomEvaluation(parsedRoleSpec.role_id, guardMode, synthesizedScenarios);
+    onStartCustomEvaluation(parsedRoleSpec.role_id, 'AUTONOMOUS', synthesizedScenarios);
   };
 
   return (
@@ -172,10 +189,35 @@ export default function CustomAgentPage({
               <button
                 type="button"
                 onClick={handleResetAgent}
-                className="btn-secondary"
-                style={{ fontSize: '0.74rem', padding: '4px 10px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                title="Select or drag a different agent definition file"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '6px 14px',
+                  fontSize: '0.78rem',
+                  fontWeight: 600,
+                  color: '#0f766e',
+                  backgroundColor: '#f0fdfa',
+                  border: '1px solid #99f6e4',
+                  borderRadius: '7px',
+                  cursor: 'pointer',
+                  boxShadow: '0 1px 2px rgba(15, 118, 110, 0.06)',
+                  transition: 'all 0.15s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#ccfbf1';
+                  e.currentTarget.style.borderColor = '#5eead4';
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = '#f0fdfa';
+                  e.currentTarget.style.borderColor = '#99f6e4';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                }}
               >
-                <X size={12} /> Change Agent
+                <ArrowLeftRight size={13} color="#0f766e" />
+                <span>Switch / Upload New Agent</span>
               </button>
             )}
           </div>
@@ -343,90 +385,141 @@ export default function CustomAgentPage({
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-              {/* Runtime Mode Selector */}
-              <div style={{ display: 'flex', alignItems: 'center', background: '#f1f5f9', padding: '3px', borderRadius: '8px' }}>
-                <button
-                  type="button"
-                  onClick={() => setGuardMode('AUTONOMOUS')}
-                  style={{
-                    padding: '6px 12px',
-                    borderRadius: '6px',
-                    border: 'none',
-                    fontSize: '0.78rem',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    background: guardMode === 'AUTONOMOUS' ? '#047857' : 'transparent',
-                    color: guardMode === 'AUTONOMOUS' ? '#ffffff' : '#475569',
-                    transition: 'all 0.15s ease'
-                  }}
-                >
-                  ⚡ Autonomous Gate
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setGuardMode('HITL')}
-                  style={{
-                    padding: '6px 12px',
-                    borderRadius: '6px',
-                    border: 'none',
-                    fontSize: '0.78rem',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    background: guardMode === 'HITL' ? '#047857' : 'transparent',
-                    color: guardMode === 'HITL' ? '#ffffff' : '#475569',
-                    transition: 'all 0.15s ease'
-                  }}
-                >
-                  🛡️ Human Review
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setGuardMode('ALERT_ONLY')}
-                  style={{
-                    padding: '6px 12px',
-                    borderRadius: '6px',
-                    border: 'none',
-                    fontSize: '0.78rem',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    background: guardMode === 'ALERT_ONLY' ? '#b45309' : 'transparent',
-                    color: guardMode === 'ALERT_ONLY' ? '#ffffff' : '#475569',
-                    transition: 'all 0.15s ease'
-                  }}
-                >
-                  ⚠️ Alert Only
-                </button>
+              {/* Policy Gate Badge */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#ecfdf5', border: '1px solid #a7f3d0', padding: '6px 14px', borderRadius: '8px', color: '#047857', fontSize: '0.8rem', fontWeight: 600 }}>
+                <Zap size={14} color="#047857" />
+                <span>Autonomous Gating Active</span>
               </div>
 
+              {/* Regenerate Suite Button */}
               <button
                 type="button"
                 onClick={handleRegenerateSuite}
                 disabled={isSynthesizing || isRunning}
-                className="btn-secondary"
-                style={{ fontSize: '0.8rem', padding: '7px 14px' }}
+                title="Synthesize 5 fresh benign and adversarial test scenarios tailored to this agent"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '8px 16px',
+                  fontSize: '0.82rem',
+                  fontWeight: 600,
+                  color: isSynthesizing ? '#94a3b8' : '#1e293b',
+                  background: isSynthesizing ? '#f8fafc' : '#ffffff',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: '8px',
+                  cursor: (isSynthesizing || isRunning) ? 'not-allowed' : 'pointer',
+                  boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
+                  transition: 'all 0.15s ease'
+                }}
+                onMouseEnter={(e) => {
+                  if (!isSynthesizing && !isRunning) {
+                    e.currentTarget.style.backgroundColor = '#f8fafc';
+                    e.currentTarget.style.borderColor = '#94a3b8';
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                    e.currentTarget.style.boxShadow = '0 3px 8px rgba(0, 0, 0, 0.08)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = isSynthesizing ? '#f8fafc' : '#ffffff';
+                  e.currentTarget.style.borderColor = '#cbd5e1';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.05)';
+                }}
               >
-                <RotateCcw size={13} className={isSynthesizing ? 'animate-spin' : ''} />
-                {isSynthesizing ? 'Synthesizing...' : 'Regenerate Suite'}
+                <RotateCcw size={14} color={isSynthesizing ? '#94a3b8' : '#059669'} className={isSynthesizing ? 'animate-spin' : ''} />
+                <span>{isSynthesizing ? 'Synthesizing 5 Scenarios...' : 'Regenerate Suite'}</span>
               </button>
 
+              {/* Run Red-Team Suite Hero Button */}
               <button
                 type="button"
                 onClick={handleRunEvaluation}
                 disabled={!parsedRoleSpec || isRunning || !isConnected}
-                className="btn-primary"
-                style={{ fontSize: '0.84rem', padding: '7px 20px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '9px 22px',
+                  fontSize: '0.86rem',
+                  fontWeight: 700,
+                  letterSpacing: '-0.01em',
+                  color: '#ffffff',
+                  background: isRunning
+                    ? 'linear-gradient(135deg, #047857 0%, #065f46 100%)'
+                    : 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: (!parsedRoleSpec || isRunning || !isConnected) ? 'not-allowed' : 'pointer',
+                  boxShadow: isRunning
+                    ? '0 0 0 3px rgba(16, 185, 129, 0.35)'
+                    : '0 4px 14px rgba(4, 120, 87, 0.35)',
+                  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
+                }}
+                onMouseEnter={(e) => {
+                  if (parsedRoleSpec && !isRunning && isConnected) {
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                    e.currentTarget.style.boxShadow = '0 6px 18px rgba(4, 120, 87, 0.42)';
+                    e.currentTarget.style.filter = 'brightness(1.05)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = isRunning ? '0 0 0 3px rgba(16, 185, 129, 0.35)' : '0 4px 14px rgba(4, 120, 87, 0.35)';
+                  e.currentTarget.style.filter = 'none';
+                }}
               >
-                <Play size={14} fill="#ffffff" />
-                {isRunning ? 'Evaluating Live...' : 'Run Red-Team Suite'}
+                {isRunning ? (
+                  <>
+                    <div style={{ width: '14px', height: '14px', border: '2px solid #ffffff', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                    <span>Evaluating Live Audit...</span>
+                  </>
+                ) : (
+                  <>
+                    <Play size={14} fill="#ffffff" strokeWidth={0} />
+                    <span>Run Red-Team Suite</span>
+                    {synthesizedScenarios.length > 0 && (
+                      <span style={{ fontSize: '0.72rem', background: 'rgba(255, 255, 255, 0.25)', padding: '1px 7px', borderRadius: '10px', marginLeft: '2px', fontWeight: 600 }}>
+                        {synthesizedScenarios.length}
+                      </span>
+                    )}
+                  </>
+                )}
               </button>
             </div>
           </div>
         </div>
       )}
 
+      {/* Success Notification Banner on Scenario Regeneration */}
+      {regenSuccess && (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+          padding: '11px 18px',
+          background: 'linear-gradient(135deg, #ecfdf5 0%, #f0fdf4 100%)',
+          border: '1px solid #6ee7b7',
+          borderRadius: '8px',
+          color: '#065f46',
+          fontSize: '0.86rem',
+          fontWeight: 600,
+          marginBottom: '18px',
+          boxShadow: '0 2px 6px rgba(5, 150, 105, 0.08)',
+          animation: 'fadeIn 0.2s ease'
+        }}>
+          <Sparkles size={16} color="#059669" />
+          <span>Successfully regenerated 5 fresh red-team vectors for <strong>{parsedRoleSpec?.role_name}</strong>!</span>
+        </div>
+      )}
+
       {/* Synthesized Scenario Cards */}
       {synthesizedScenarios.length > 0 && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '14px', marginBottom: '24px' }}>
+        <div
+          key={synthesizedScenarios.map(s => s.scenario_id).join(',')}
+          className="animate-fade-in"
+          style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '14px', marginBottom: '24px' }}
+        >
           {synthesizedScenarios.map((scn, idx) => {
             const isCurrentActive = customActiveTicket?.ticket_id === scn.scenario_id;
             return (
