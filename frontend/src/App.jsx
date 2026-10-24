@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import Navigation from './components/Navigation';
 import Header from './components/Header';
 import CustomInputCard from './components/CustomInputCard';
@@ -100,6 +101,19 @@ const DEFAULT_PIPELINE_TICKETS = [
 ];
 
 export default function App() {
+  const [theme, setTheme] = useState(() => {
+    return localStorage.getItem('aegis-theme') || 'dark';
+  });
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('aegis-theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
+  };
+
   const [activeTab, setActiveTab] = useState('COMMAND_CENTER'); // 'COMMAND_CENTER' | 'INCIDENT_LOG' | 'REMIT_POLICY'
   const [isConnected, setIsConnected] = useState(false);
   const [guardMode, setGuardMode] = useState('AUTONOMOUS'); // 'AUTONOMOUS' | 'HITL' | 'ALERT_ONLY'
@@ -421,108 +435,120 @@ export default function App() {
 
   return (
     <div className="page-container">
-      {/* Top Navigation Bar with Persistent Excursion Badge */}
+      {/* Top Navigation Bar with Persistent Excursion Badge & Theme Toggle */}
       <Navigation
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         excursionCount={excursions.length}
         isConnected={isConnected}
+        theme={theme}
+        toggleTheme={toggleTheme}
       />
 
       {/* Smooth Page-Transition Container */}
-      <main key={activeTab} className="page-transition-view" id="main-content">
-        {/* Page 1: Command Center */}
-        {activeTab === 'COMMAND_CENTER' && (
-          <div className="page-view-content">
-            <Header
-              guardMode={guardMode}
-              setGuardMode={setGuardMode}
-              isRunning={isRunning}
-              onStartRun={handleStartRun}
-              onStartPipeline={handleStartPipeline}
-              onReset={handleReset}
-            />
-
-            {/* Interactive Input Sandbox & Autonomous Stream Queue */}
-            <CustomInputCard
-              customPrompt={customPrompt}
-              setCustomPrompt={setCustomPrompt}
-              isRunning={isRunning}
-              pipelineTickets={pipelineTickets}
-              activeTicketId={activeTicketId}
-              pipelineSummary={pipelineSummary}
-              inputMode={inputMode}
-              setInputMode={setInputMode}
-              onStartPipeline={handleStartPipeline}
-            />
-
-            {/* Stat Cards (Remit Conformance, Profile, Gate, Persistent Excursions) */}
-            <StatCards
-              currentVerdict={currentVerdict}
-              isProtectedMode={guardMode !== 'ALERT_ONLY'}
-              guardMode={guardMode}
-              excursionCount={excursions.length}
-            />
-
-            {/* Dual Feed Layout */}
-            <div className="content-grid">
-              <AgentFeed
-                currentScenario={liveScenarioObj}
-                executionSteps={executionSteps}
-                currentVerdict={currentVerdict}
+      <AnimatePresence mode="wait">
+        <motion.main
+          key={activeTab}
+          className="page-transition-view"
+          id="main-content"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -10 }}
+          transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+        >
+          {/* Page 1: Command Center */}
+          {activeTab === 'COMMAND_CENTER' && (
+            <div className="page-view-content">
+              <Header
+                guardMode={guardMode}
+                setGuardMode={setGuardMode}
                 isRunning={isRunning}
-                isProtectedMode={guardMode !== 'ALERT_ONLY'}
+                onStartRun={handleStartRun}
+                onStartPipeline={handleStartPipeline}
+                onReset={handleReset}
               />
 
-              <SecurityFeed
+              {/* Interactive Input Sandbox & Autonomous Stream Queue */}
+              <CustomInputCard
+                customPrompt={customPrompt}
+                setCustomPrompt={setCustomPrompt}
+                isRunning={isRunning}
+                pipelineTickets={pipelineTickets}
+                activeTicketId={activeTicketId}
+                pipelineSummary={pipelineSummary}
+                inputMode={inputMode}
+                setInputMode={setInputMode}
+                onStartPipeline={handleStartPipeline}
+              />
+
+              {/* Stat Cards (Remit Conformance, Profile, Gate, Persistent Excursions) */}
+              <StatCards
                 currentVerdict={currentVerdict}
                 isProtectedMode={guardMode !== 'ALERT_ONLY'}
-                activeRemit={activeRemit}
+                guardMode={guardMode}
+                excursionCount={excursions.length}
+              />
+
+              {/* Dual Feed Layout */}
+              <div className="content-grid">
+                <AgentFeed
+                  currentScenario={liveScenarioObj}
+                  executionSteps={executionSteps}
+                  currentVerdict={currentVerdict}
+                  isRunning={isRunning}
+                  isProtectedMode={guardMode !== 'ALERT_ONLY'}
+                />
+
+                <SecurityFeed
+                  currentVerdict={currentVerdict}
+                  isProtectedMode={guardMode !== 'ALERT_ONLY'}
+                  activeRemit={activeRemit}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Page 2: Custom Multi-Framework Agent Ingestion & Red-Teaming */}
+          {activeTab === 'CUSTOM_AGENT' && (
+            <div className="page-view-content">
+              <CustomAgentPage
+                guardMode={guardMode}
+                setGuardMode={setGuardMode}
+                onStartCustomEvaluation={handleStartCustomEvaluation}
+                onClearCustomEvaluation={() => {
+                  setCustomSteps([]);
+                  setCustomScorecard(null);
+                  setActiveCustomVerdict(null);
+                  setCustomActiveTicket(null);
+                }}
+                isRunning={isRunning}
+                activeCustomVerdict={activeCustomVerdict}
+                customSteps={customSteps}
+                customScorecard={customScorecard}
+                customActiveTicket={customActiveTicket}
+                isConnected={isConnected}
               />
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Page 2: Custom Multi-Framework Agent Ingestion & Red-Teaming */}
-        {activeTab === 'CUSTOM_AGENT' && (
-          <div className="page-view-content">
-            <CustomAgentPage
-              guardMode={guardMode}
-              setGuardMode={setGuardMode}
-              onStartCustomEvaluation={handleStartCustomEvaluation}
-              onClearCustomEvaluation={() => {
-                setCustomSteps([]);
-                setCustomScorecard(null);
-                setActiveCustomVerdict(null);
-                setCustomActiveTicket(null);
-              }}
-              isRunning={isRunning}
-              activeCustomVerdict={activeCustomVerdict}
-              customSteps={customSteps}
-              customScorecard={customScorecard}
-              customActiveTicket={customActiveTicket}
-              isConnected={isConnected}
-            />
-          </div>
-        )}
+          {/* Page 3: Persistent Incident & Excursion Forensic Log */}
+          {activeTab === 'INCIDENT_LOG' && (
+            <div className="page-view-content">
+              <IncidentLogPage
+                excursions={excursions}
+                onClearExcursions={handleClearExcursions}
+              />
+            </div>
+          )}
 
-        {/* Page 3: Persistent Incident & Excursion Forensic Log */}
-        {activeTab === 'INCIDENT_LOG' && (
-          <div className="page-view-content">
-            <IncidentLogPage
-              excursions={excursions}
-              onClearExcursions={handleClearExcursions}
-            />
-          </div>
-        )}
-
-        {/* Page 3: Remit Policy & Envelope Configuration */}
-        {activeTab === 'REMIT_POLICY' && (
-          <div className="page-view-content">
-            <RemitPolicyPage />
-          </div>
-        )}
-      </main>
+          {/* Page 4: Remit Policy & Envelope Configuration */}
+          {activeTab === 'REMIT_POLICY' && (
+            <div className="page-view-content">
+              <RemitPolicyPage />
+            </div>
+          )}
+        </motion.main>
+      </AnimatePresence>
 
       {/* Real-time Human-in-the-Loop Review Modal */}
       <HITLModal

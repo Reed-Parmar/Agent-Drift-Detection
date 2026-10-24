@@ -1,5 +1,6 @@
 import React from 'react';
-import { Play, RotateCcw, Zap, Layers } from 'lucide-react';
+import { motion } from 'motion/react';
+import { Play, RotateCcw, Zap, Shield, AlertTriangle, UserCheck } from 'lucide-react';
 
 export default function Header({
   guardMode,
@@ -13,9 +14,12 @@ export default function Header({
     <header className="header-area">
       <div>
         <div className="header-tag">
-          <span>• SAFETY &amp; RUNTIME ENGINE</span>
-          <span className="dim-text">/</span>
-          <span className="dim-text">AARM &amp; MAD TAXONOMY</span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--color-primary)' }} />
+            RUNTIME DEFENSE GATE
+          </span>
+          <span className="dim-text">//</span>
+          <span className="dim-text">MAD TAXONOMY M0-M4</span>
         </div>
         <h1 className="header-title">Agent Telemetry &amp; Drift Anomalies</h1>
         <p className="header-subtitle">
@@ -24,111 +28,86 @@ export default function Header({
       </div>
 
       <div className="header-actions">
-        {/* Policy Mode Selector: Autonomous on the left of Human Review */}
-        <div style={{ display: 'flex', background: '#f1f5f9', padding: '3px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-card)', gap: '2px' }}>
+        {/* Runtime Policy Mode Selector */}
+        <div className="policy-segmented-control" role="group" aria-label="Runtime Policy Gate Mode">
           <button
             type="button"
-            className={`btn-outline ${guardMode === 'AUTONOMOUS' ? 'active' : ''}`}
+            className={`policy-segment-btn ${guardMode === 'AUTONOMOUS' ? 'active-autonomous' : ''}`}
             onClick={() => setGuardMode('AUTONOMOUS')}
             disabled={isRunning}
-            style={{
-              border: 'none',
-              background: guardMode === 'AUTONOMOUS' ? 'var(--color-primary)' : 'transparent',
-              color: guardMode === 'AUTONOMOUS' ? '#ffffff' : 'var(--text-muted)',
-              fontSize: '0.78rem',
-              fontWeight: '700',
-              padding: '6px 12px',
-              borderRadius: '4px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '5px'
-            }}
+            title="Auto-quarantines confirmed policy violations (Risk >= 60 or non-M0 with Risk >= 50). Benign tickets pass instantly."
           >
-            <span>⚡ Autonomous Gate</span>
+            <Zap size={14} />
+            <span>Autonomous Gate</span>
           </button>
 
           <button
             type="button"
-            className={`btn-outline ${guardMode === 'HITL' ? 'active' : ''}`}
+            className={`policy-segment-btn ${guardMode === 'HITL' ? 'active-hitl' : ''}`}
             onClick={() => setGuardMode('HITL')}
             disabled={isRunning}
-            style={{
-              border: 'none',
-              background: guardMode === 'HITL' ? 'var(--color-primary)' : 'transparent',
-              color: guardMode === 'HITL' ? '#ffffff' : 'var(--text-muted)',
-              fontSize: '0.78rem',
-              fontWeight: '700',
-              padding: '6px 12px',
-              borderRadius: '4px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '5px'
-            }}
+            title="Pauses on suspicious drift intent and displays human operator review modal."
           >
-            <span>🛡️ Human Review (HITL)</span>
+            <UserCheck size={14} />
+            <span>Human Review (HITL)</span>
           </button>
 
           <button
             type="button"
-            className={`btn-outline ${guardMode === 'ALERT_ONLY' ? 'active' : ''}`}
+            className={`policy-segment-btn ${guardMode === 'ALERT_ONLY' ? 'active-alert' : ''}`}
             onClick={() => setGuardMode('ALERT_ONLY')}
             disabled={isRunning}
-            style={{
-              border: 'none',
-              background: guardMode === 'ALERT_ONLY' ? '#dc2626' : 'transparent',
-              color: guardMode === 'ALERT_ONLY' ? '#ffffff' : 'var(--text-muted)',
-              fontSize: '0.78rem',
-              fontWeight: '700',
-              padding: '6px 12px',
-              borderRadius: '4px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '5px'
-            }}
+            title="Telemetry only: records audit logs but does not block tool execution (unprotected)."
           >
-            <span>⚠️ Alert Only (Unprotected)</span>
+            <AlertTriangle size={14} />
+            <span>Alert Only</span>
           </button>
         </div>
 
         {/* Primary Action 1: Continuous Ticket Queue Stream */}
-        <button
+        <motion.button
           type="button"
           id="btn-run-pipeline"
           className="btn-voltsense"
           onClick={onStartPipeline}
           disabled={isRunning}
-          style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
           title="Run continuous stream of tickets: benign resolve, malicious auto-blocked, next ticket continues"
         >
           <Zap size={15} fill="#ffffff" />
-          <span>{isRunning ? 'Processing Pipeline...' : 'Run Ticket Queue'}</span>
-        </button>
+          <span>{isRunning ? 'Processing Stream...' : 'Run Ticket Queue'}</span>
+        </motion.button>
 
         {/* Action 2: Single Test Run */}
-        <button
+        <motion.button
           type="button"
           id="btn-run-simulation"
           className="btn-outline"
           onClick={onStartRun}
           disabled={isRunning}
-          style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px' }}
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          title="Evaluate single active ticket prompt against dual-tier guard"
         >
           <Play size={14} />
           <span>Run Single Ticket</span>
-        </button>
+        </motion.button>
 
         {/* Reset Button */}
-        <button
+        <motion.button
           type="button"
           id="btn-reset-demo"
           className="btn-outline"
           onClick={onReset}
           disabled={isRunning}
-          title="Reset Dashboard"
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          title="Reset Dashboard State & Telemetry"
           style={{ padding: '8px 10px' }}
         >
           <RotateCcw size={16} />
-        </button>
+        </motion.button>
       </div>
     </header>
   );

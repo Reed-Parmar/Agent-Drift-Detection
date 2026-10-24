@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { AlertCircle, Trash2, Filter, ShieldAlert, CheckCircle2, Clock } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { AlertCircle, Trash2, Filter, ShieldAlert, CheckCircle2, Clock, Download, FileSpreadsheet } from 'lucide-react';
 
 export default function IncidentLogPage({ excursions, onClearExcursions }) {
   const [filter, setFilter] = useState('ALL');
@@ -12,29 +13,61 @@ export default function IncidentLogPage({ excursions, onClearExcursions }) {
     return true;
   });
 
+  const handleExportJSON = () => {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(excursions, null, 2));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute("href", dataStr);
+    downloadAnchor.setAttribute("download", `aegis_forensic_incident_log_${new Date().toISOString().slice(0, 10)}.json`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+  };
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }} className="page-view-content">
       <div className="vs-card">
         <div className="card-top">
           <div>
-            <div className="card-title">Persistent Security Incident &amp; Excursion Log</div>
+            <div className="card-title">
+              <ShieldAlert size={18} color="var(--color-danger)" />
+              <span>Persistent Security Incident &amp; Forensic Ledger</span>
+            </div>
             <div className="card-subtitle">
               Auditable forensic ledger of all detected agent identity drift events and gate interventions
             </div>
           </div>
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-              {excursions.length} total excursions recorded
+
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+              {excursions.length} total event{excursions.length === 1 ? '' : 's'} recorded
             </span>
-            <button
+
+            {excursions.length > 0 && (
+              <motion.button
+                type="button"
+                className="btn-outline"
+                onClick={handleExportJSON}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                title="Download JSON forensic report"
+              >
+                <Download size={14} />
+                <span>Export Audit Log</span>
+              </motion.button>
+            )}
+
+            <motion.button
               type="button"
               className="btn-outline"
               onClick={onClearExcursions}
-              style={{ color: '#dc2626' }}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              style={{ color: 'var(--color-danger-text)' }}
+              title="Clear all recorded incident records"
             >
               <Trash2 size={14} />
               <span>Clear Log</span>
-            </button>
+            </motion.button>
           </div>
         </div>
 
@@ -71,23 +104,26 @@ export default function IncidentLogPage({ excursions, onClearExcursions }) {
             </button>
           </div>
 
-          <div key={filter} className="subpage-transition-view">
+          <div>
             {filtered.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '48px 20px', color: 'var(--text-dim)' }}>
-                <ShieldAlert size={36} style={{ margin: '0 auto 12px', opacity: 0.3 }} />
-                <p style={{ fontWeight: '600' }}>No excursions recorded in this category.</p>
-                <p style={{ fontSize: '0.8rem' }}>Run an attack simulation in the Command Center to populate incident records.</p>
+                <ShieldAlert size={42} style={{ margin: '0 auto 12px', opacity: 0.3 }} />
+                <p style={{ fontWeight: '700', fontSize: '0.95rem', color: 'var(--text-title)' }}>No excursions recorded in this category.</p>
+                <p style={{ fontSize: '0.82rem', marginTop: '4px' }}>Run an attack simulation in the Command Center or Red-Team tab to generate incident records.</p>
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {filtered.map((item, idx) => (
-                  <div
+                  <motion.div
                     key={item.id || idx}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.2, delay: idx * 0.04 }}
                     className={`incident-log-card ${item.risk_score >= 70 ? 'critical-breach' : ''}`}
                   >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <span style={{ fontFamily: 'var(--font-mono)', fontWeight: '700', fontSize: '0.84rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                        <span style={{ fontFamily: 'var(--font-mono)', fontWeight: '800', fontSize: '0.84rem', color: 'var(--text-title)' }}>
                           {item.id}
                         </span>
                         <span className={`stat-pill ${item.risk_score >= 70 ? 'critical' : 'alert'}`}>
@@ -98,17 +134,24 @@ export default function IncidentLogPage({ excursions, onClearExcursions }) {
                         </span>
                       </div>
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', color: 'var(--text-dim)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.75rem', color: 'var(--text-dim)' }}>
                         <Clock size={12} />
                         <span>{item.time_str || new Date(item.timestamp * 1000).toLocaleTimeString()}</span>
-                        <span className="stat-pill critical" style={{ background: '#dc2626', color: '#ffffff' }}>
-                          {item.decision || 'BLOCKED'}
+                        <span
+                          className="stat-pill critical"
+                          style={{
+                            background: 'var(--color-danger)',
+                            color: '#ffffff',
+                            fontWeight: 800
+                          }}
+                        >
+                          {item.decision || 'QUARANTINED'}
                         </span>
                       </div>
                     </div>
 
-                    <div style={{ fontSize: '0.82rem', color: 'var(--text-title)', lineHeight: '1.45' }}>
-                      <strong>Finding:</strong> {item.explanation}
+                    <div style={{ fontSize: '0.84rem', color: 'var(--text-body)', lineHeight: '1.45' }}>
+                      <strong style={{ color: 'var(--text-title)' }}>Finding:</strong> {item.explanation}
                     </div>
 
                     {item.target_tool && (
@@ -118,7 +161,7 @@ export default function IncidentLogPage({ excursions, onClearExcursions }) {
                         </pre>
                       </div>
                     )}
-                  </div>
+                  </motion.div>
                 ))}
               </div>
             )}

@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import {
   UploadCloud,
   FileCode,
@@ -18,7 +19,11 @@ import {
   X,
   Check,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Award,
+  ShieldAlert,
+  ShieldCheck,
+  HelpCircle
 } from 'lucide-react';
 
 export default function CustomAgentPage({
@@ -44,6 +49,19 @@ export default function CustomAgentPage({
   const [dragOver, setDragOver] = useState(false);
   const [showRawSpec, setShowRawSpec] = useState(false);
   const [regenSuccess, setRegenSuccess] = useState(false);
+  const [sampleTemplates, setSampleTemplates] = useState({});
+
+  // Fetch pre-configured sample templates
+  useEffect(() => {
+    fetch('http://127.0.0.1:8000/api/agents/sample-templates')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && typeof data === 'object') {
+          setSampleTemplates(data);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const processAgentUpload = async (content, name) => {
     setIsUploading(true);
@@ -99,6 +117,15 @@ export default function CustomAgentPage({
     reader.readAsText(file);
   };
 
+  const handleSelectSample = (key) => {
+    const template = sampleTemplates[key];
+    if (!template) return;
+    const sampleFileName = `${key}_sample.${template.format === 'yaml' ? 'yaml' : 'json'}`;
+    setFileName(sampleFileName);
+    setFileContent(template.raw_content);
+    processAgentUpload(template.raw_content, sampleFileName);
+  };
+
   const handleResetAgent = () => {
     setFileContent('');
     setFileName('');
@@ -148,27 +175,38 @@ export default function CustomAgentPage({
   };
 
   return (
-    <div className="custom-agent-page animate-fade-in" style={{ padding: '0 4px 40px' }}>
+    <div className="custom-agent-page page-view-content" style={{ padding: '0 4px 40px' }}>
       {/* Header Banner */}
-      <div className="section-card" style={{ marginBottom: '20px', padding: '22px 24px', background: 'linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%)', borderColor: '#bbf7d0' }}>
+      <div className="vs-card" style={{ padding: '22px 24px', position: 'relative', overflow: 'hidden' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
-              <span className="stat-pill success" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+              <span className="stat-pill nominal" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
                 <Sparkles size={13} />
                 Multi-Framework Agent Ingestion
               </span>
               {detectedFramework && (
-                <span className="stat-pill neutral" style={{ background: '#e0f2fe', color: '#0369a1', borderColor: '#bae6fd' }}>
-                  Framework: <strong>{detectedFramework}</strong>
+                <span
+                  style={{
+                    fontSize: '0.72rem',
+                    fontFamily: 'var(--font-mono)',
+                    fontWeight: '700',
+                    padding: '3px 10px',
+                    borderRadius: 'var(--radius-pill)',
+                    background: 'rgba(6, 182, 212, 0.15)',
+                    color: 'var(--color-accent-cyan)',
+                    border: '1px solid rgba(6, 182, 212, 0.35)'
+                  }}
+                >
+                  FRAMEWORK: {detectedFramework}
                 </span>
               )}
             </div>
-            <h2 style={{ fontSize: '1.45rem', fontWeight: 700, color: '#0f172a', margin: '0 0 6px 0', letterSpacing: '-0.02em' }}>
+            <h2 style={{ fontSize: '1.55rem', fontWeight: 800, color: 'var(--text-title)', margin: '0 0 6px 0', letterSpacing: '-0.02em' }}>
               Upload Custom Agent &amp; Run Automated Drift Red-Teaming
             </h2>
-            <p style={{ margin: 0, fontSize: '0.88rem', color: '#64748b', maxWidth: '820px', lineHeight: 1.5 }}>
-              Upload any agent definition from the <code>sample/</code> directory or your own custom agent configuration in <strong>CrewAI</strong>, <strong>AutoGen</strong>, <strong>LangChain</strong>, or <strong>AEGIS Native</strong> format.
+            <p style={{ margin: 0, fontSize: '0.88rem', color: 'var(--text-muted)', maxWidth: '840px', lineHeight: 1.5 }}>
+              Upload any agent definition from the <code>sample/</code> directory or test your own custom agent configuration across <strong>CrewAI</strong>, <strong>AutoGen</strong>, <strong>LangChain</strong>, or <strong>AEGIS Native</strong> schemas.
               AEGIS pre-computes an in-flight semantic contract baseline, automatically synthesizes 5 targeted red-team test tickets (benign tasks &amp; adversarial prompt injections),
               and executes live in-engine drift detection.
             </p>
@@ -176,101 +214,202 @@ export default function CustomAgentPage({
         </div>
       </div>
 
-      {/* Grid: Upload Zone (Left) & Parsed Remit Profile (Right) */}
-      <div style={{ display: 'grid', gridTemplateColumns: parsedRoleSpec ? 'minmax(320px, 0.9fr) minmax(420px, 1.3fr)' : '1fr', gap: '20px', marginBottom: '20px' }}>
-        {/* Upload Zone Card */}
-        <div className="section-card" style={{ padding: '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-            <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#1e293b', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <UploadCloud size={18} color="#047857" />
-              Upload Agent Configuration (.yaml / .json)
+      {/* Grid: Upload Zone & Remit Profile */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: parsedRoleSpec ? 'minmax(320px, 0.95fr) minmax(420px, 1.25fr)' : '1fr',
+          gap: '20px'
+        }}
+      >
+        {/* Upload Card */}
+        <div className="vs-card" style={{ padding: '22px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <h3 style={{ fontSize: '0.98rem', fontWeight: 700, color: 'var(--text-title)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <UploadCloud size={18} color="var(--color-primary)" />
+              <span>Select or Drop Agent Specification</span>
             </h3>
+
             {parsedRoleSpec && (
-              <button
+              <motion.button
                 type="button"
                 onClick={handleResetAgent}
-                title="Select or drag a different agent definition file"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '6px',
-                  padding: '6px 14px',
+                  padding: '6px 12px',
                   fontSize: '0.78rem',
                   fontWeight: 600,
-                  color: '#0f766e',
-                  backgroundColor: '#f0fdfa',
-                  border: '1px solid #99f6e4',
-                  borderRadius: '7px',
-                  cursor: 'pointer',
-                  boxShadow: '0 1px 2px rgba(15, 118, 110, 0.06)',
-                  transition: 'all 0.15s ease'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = '#ccfbf1';
-                  e.currentTarget.style.borderColor = '#5eead4';
-                  e.currentTarget.style.transform = 'translateY(-1px)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = '#f0fdfa';
-                  e.currentTarget.style.borderColor = '#99f6e4';
-                  e.currentTarget.style.transform = 'translateY(0)';
+                  color: 'var(--color-primary)',
+                  backgroundColor: 'var(--bg-subtle)',
+                  border: '1px solid var(--border-hover)',
+                  borderRadius: 'var(--radius-sm)',
+                  cursor: 'pointer'
                 }}
               >
-                <ArrowLeftRight size={13} color="#0f766e" />
+                <ArrowLeftRight size={13} />
                 <span>Switch / Upload New Agent</span>
-              </button>
+              </motion.button>
             )}
           </div>
 
           {!parsedRoleSpec ? (
-            <div
-              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-              onDragLeave={() => setDragOver(false)}
-              onDrop={handleFileDrop}
-              style={{
-                border: `2px dashed ${dragOver ? '#047857' : '#cbd5e1'}`,
-                borderRadius: '8px',
-                padding: '36px 20px',
-                textAlign: 'center',
-                backgroundColor: dragOver ? '#f0fdf4' : '#f8fafc',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease',
-                marginBottom: '14px'
-              }}
-              onClick={() => document.getElementById('agent-file-input').click()}
-            >
-              <input
-                type="file"
-                id="agent-file-input"
-                accept=".json,.yaml,.yml"
-                style={{ display: 'none' }}
-                onChange={handleFileInput}
-              />
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
-                <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <FileCode size={24} color="#047857" />
+            <div>
+              {/* One-Click Sample Presets */}
+              <div style={{ marginBottom: '18px' }}>
+                <div style={{ fontSize: '0.74rem', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-dim)', marginBottom: '8px' }}>
+                  Quick-Load Pre-Configured Samples (1-Click Test):
                 </div>
-                <div>
-                  <p style={{ margin: '0 0 6px', fontSize: '0.95rem', fontWeight: 600, color: '#1e293b' }}>
-                    Click to browse or drag &amp; drop configuration file
-                  </p>
-                  <p style={{ margin: 0, fontSize: '0.78rem', color: '#64748b' }}>
-                    Drag any file from <code>sample/</code>: <strong>CrewAI</strong> (YAML), <strong>AutoGen</strong> (JSON), <strong>LangChain</strong> (JSON), or <strong>AEGIS</strong> (.json)
-                  </p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                  <button
+                    type="button"
+                    className="chip-btn"
+                    onClick={() => handleSelectSample('crewai')}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    <span style={{ fontSize: '0.64rem', padding: '1px 5px', borderRadius: '3px', background: 'rgba(16, 185, 129, 0.2)', color: 'var(--color-primary)' }}>
+                      CrewAI
+                    </span>
+                    <span>Financial Analyst (YAML)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="chip-btn"
+                    onClick={() => handleSelectSample('autogen')}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    <span style={{ fontSize: '0.64rem', padding: '1px 5px', borderRadius: '3px', background: 'rgba(6, 182, 212, 0.2)', color: 'var(--color-accent-cyan)' }}>
+                      AutoGen
+                    </span>
+                    <span>Warehouse Manager (JSON)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="chip-btn"
+                    onClick={() => handleSelectSample('google')}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    <span style={{ fontSize: '0.64rem', padding: '1px 5px', borderRadius: '3px', background: 'rgba(245, 158, 11, 0.2)', color: 'var(--color-warn)' }}>
+                      Google/CrewAI
+                    </span>
+                    <span>Logistics Coordinator (JSON)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="chip-btn"
+                    onClick={() => handleSelectSample('langchain')}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    <span style={{ fontSize: '0.64rem', padding: '1px 5px', borderRadius: '3px', background: 'rgba(139, 92, 246, 0.2)', color: 'var(--color-accent-purple)' }}>
+                      LangChain
+                    </span>
+                    <span>Customer Support Bot (JSON)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="chip-btn"
+                    onClick={() => handleSelectSample('aegis')}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    <span style={{ fontSize: '0.64rem', padding: '1px 5px', borderRadius: '3px', background: 'rgba(255, 255, 255, 0.15)', color: 'var(--text-title)' }}>
+                      AEGIS
+                    </span>
+                    <span>Procurement Agent (JSON)</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Drag and Drop Box */}
+              <div
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragOver(true);
+                }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={handleFileDrop}
+                style={{
+                  border: `2px dashed ${dragOver ? 'var(--color-primary)' : 'var(--border-card)'}`,
+                  borderRadius: 'var(--radius-md)',
+                  padding: '38px 20px',
+                  textAlign: 'center',
+                  backgroundColor: dragOver ? 'var(--color-primary-light)' : 'var(--bg-subtle)',
+                  cursor: 'pointer',
+                  transition: 'all 0.25s ease',
+                  boxShadow: dragOver ? 'var(--shadow-glow-emerald)' : 'none'
+                }}
+                onClick={() => document.getElementById('agent-file-input').click()}
+              >
+                <input
+                  type="file"
+                  id="agent-file-input"
+                  accept=".json,.yaml,.yml"
+                  style={{ display: 'none' }}
+                  onChange={handleFileInput}
+                />
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+                  <div
+                    style={{
+                      width: '52px',
+                      height: '52px',
+                      borderRadius: '50%',
+                      background: 'rgba(16, 185, 129, 0.15)',
+                      border: '1px solid rgba(16, 185, 129, 0.3)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      boxShadow: '0 0 20px rgba(16, 185, 129, 0.25)'
+                    }}
+                  >
+                    <FileCode size={26} color="var(--color-primary)" />
+                  </div>
+                  <div>
+                    <p style={{ margin: '0 0 6px', fontSize: '0.98rem', fontWeight: 700, color: 'var(--text-title)' }}>
+                      Click to browse or drag &amp; drop configuration file
+                    </p>
+                    <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                      Supported formats: <strong>CrewAI</strong> (YAML), <strong>AutoGen</strong> (JSON), <strong>LangChain</strong> (JSON), or <strong>AEGIS Native</strong> (.json)
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
           ) : (
-            <div style={{ padding: '14px 16px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', marginBottom: '14px' }}>
+            <div
+              style={{
+                padding: '16px',
+                background: 'var(--bg-subtle)',
+                border: '1px solid var(--border-card)',
+                borderRadius: 'var(--radius-sm)'
+              }}
+            >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <FileText size={16} color="#047857" />
-                  <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#0f172a' }}>{fileName || 'Custom Agent Spec'}</span>
+                  <FileText size={16} color="var(--color-primary)" />
+                  <span style={{ fontSize: '0.86rem', fontWeight: 700, color: 'var(--text-title)' }}>
+                    {fileName || 'Custom Agent Spec'}
+                  </span>
                 </div>
                 <button
                   type="button"
                   onClick={() => setShowRawSpec(!showRawSpec)}
-                  style={{ background: 'none', border: 'none', color: '#047857', fontSize: '0.74rem', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--color-primary)',
+                    fontSize: '0.76rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
                 >
                   {showRawSpec ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
                   {showRawSpec ? 'Hide Raw Spec' : 'View Raw Spec'}
@@ -278,17 +417,7 @@ export default function CustomAgentPage({
               </div>
 
               {showRawSpec && (
-                <pre style={{
-                  background: '#0f172a',
-                  color: '#e2e8f0',
-                  padding: '12px 14px',
-                  borderRadius: '6px',
-                  fontSize: '0.75rem',
-                  maxHeight: '190px',
-                  overflowY: 'auto',
-                  fontFamily: 'JetBrains Mono, monospace',
-                  margin: 0
-                }}>
+                <pre className="code-terminal" style={{ maxHeight: '200px' }}>
                   {fileContent}
                 </pre>
               )}
@@ -296,13 +425,23 @@ export default function CustomAgentPage({
           )}
 
           {uploadError && (
-            <div style={{ padding: '10px 14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '6px', color: '#b91c1c', fontSize: '0.82rem', marginBottom: '14px' }}>
+            <div
+              style={{
+                padding: '12px 14px',
+                background: 'var(--color-danger-bg)',
+                border: '1px solid var(--color-danger-border)',
+                borderRadius: 'var(--radius-sm)',
+                color: 'var(--color-danger-text)',
+                fontSize: '0.84rem',
+                marginTop: '14px'
+              }}
+            >
               {uploadError}
             </div>
           )}
 
           {isUploading && (
-            <div style={{ textAlign: 'center', padding: '14px', color: '#047857', fontSize: '0.82rem' }}>
+            <div style={{ textAlign: 'center', padding: '16px', color: 'var(--color-primary)', fontSize: '0.84rem' }}>
               Parsing agent specification and pre-computing semantic baseline vector...
             </div>
           )}
@@ -310,44 +449,82 @@ export default function CustomAgentPage({
 
         {/* Parsed Remit Profile Card */}
         {parsedRoleSpec && (
-          <div className="section-card" style={{ padding: '20px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-              <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#1e293b', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Shield size={18} color="#047857" />
-                Declared Remit &amp; Identity Contract
+          <div className="vs-card" style={{ padding: '22px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h3 style={{ fontSize: '0.98rem', fontWeight: 700, color: 'var(--text-title)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Shield size={18} color="var(--color-primary)" />
+                <span>Declared Remit &amp; Identity Contract</span>
               </h3>
-              <span className="stat-pill success" style={{ fontSize: '0.72rem' }}>
+              <span className="stat-pill nominal" style={{ fontSize: '0.72rem' }}>
                 <CheckCircle2 size={12} /> Baseline Vector Ready
               </span>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div>
-                <span style={{ fontSize: '0.72rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>Agent Role &amp; ID</span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '4px' }}>
-                  <span style={{ fontSize: '1.05rem', fontWeight: 700, color: '#0f172a' }}>{parsedRoleSpec.role_name}</span>
-                  <span style={{ fontSize: '0.74rem', padding: '2px 8px', background: '#f1f5f9', borderRadius: '4px', color: '#475569', fontFamily: 'monospace' }}>
+                <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Agent Role &amp; ID
+                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '4px', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-title)' }}>
+                    {parsedRoleSpec.role_name}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: '0.74rem',
+                      padding: '2px 8px',
+                      background: 'rgba(255, 255, 255, 0.08)',
+                      borderRadius: '4px',
+                      color: 'var(--text-muted)',
+                      fontFamily: 'var(--font-mono)'
+                    }}
+                  >
                     id: {parsedRoleSpec.role_id}
                   </span>
                 </div>
               </div>
 
               <div>
-                <span style={{ fontSize: '0.72rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>Stated Operational Purpose</span>
-                <p style={{ margin: '4px 0 0', fontSize: '0.84rem', color: '#334155', lineHeight: 1.5, background: '#f8fafc', padding: '10px 12px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Stated Operational Purpose
+                </span>
+                <p
+                  style={{
+                    margin: '4px 0 0',
+                    fontSize: '0.84rem',
+                    color: 'var(--text-body)',
+                    lineHeight: 1.5,
+                    background: 'var(--bg-subtle)',
+                    padding: '10px 12px',
+                    borderRadius: 'var(--radius-sm)',
+                    border: '1px solid var(--border-card)',
+                    fontStyle: 'italic'
+                  }}
+                >
                   "{parsedRoleSpec.purpose_statement}"
                 </p>
               </div>
 
               <div>
-                <span style={{ fontSize: '0.72rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>
+                <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                   Authorized Tools ({parsedRoleSpec.authorized_tools?.length || 0})
                 </span>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '6px' }}>
                   {parsedRoleSpec.authorized_tools?.map((tool, idx) => (
-                    <div key={idx} style={{ padding: '6px 10px', background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '0.8rem' }}>
-                      <div style={{ fontWeight: 600, color: '#047857', fontFamily: 'monospace' }}>{tool.name}</div>
-                      <div style={{ fontSize: '0.72rem', color: '#64748b', maxWidth: '280px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <div
+                      key={idx}
+                      style={{
+                        padding: '6px 10px',
+                        background: 'var(--bg-subtle)',
+                        border: '1px solid var(--border-card)',
+                        borderRadius: 'var(--radius-sm)',
+                        fontSize: '0.78rem'
+                      }}
+                    >
+                      <div style={{ fontWeight: 700, color: 'var(--color-primary)', fontFamily: 'var(--font-mono)' }}>
+                        ✓ {tool.name}
+                      </div>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', maxWidth: '280px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {tool.description}
                       </div>
                     </div>
@@ -356,10 +533,23 @@ export default function CustomAgentPage({
               </div>
 
               <div>
-                <span style={{ fontSize: '0.72rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>Enforced Security Invariants</span>
+                <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Enforced Security Invariants
+                </span>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '6px' }}>
                   {parsedRoleSpec.forbidden_capabilities?.slice(0, 4).map((cap, idx) => (
-                    <span key={idx} style={{ fontSize: '0.72rem', padding: '2px 8px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '4px', color: '#991b1b', fontFamily: 'monospace' }}>
+                    <span
+                      key={idx}
+                      style={{
+                        fontSize: '0.7rem',
+                        padding: '2px 8px',
+                        background: 'var(--color-danger-bg)',
+                        border: '1px solid var(--color-danger-border)',
+                        borderRadius: '4px',
+                        color: 'var(--color-danger-text)',
+                        fontFamily: 'var(--font-mono)'
+                      }}
+                    >
                       🚫 {cap}
                     </span>
                   ))}
@@ -372,196 +562,178 @@ export default function CustomAgentPage({
 
       {/* Control Action Bar & Red-Team Suite Header */}
       {parsedRoleSpec && (
-        <div className="section-card" style={{ marginBottom: '20px', padding: '16px 20px', background: '#ffffff' }}>
+        <div className="vs-card" style={{ padding: '18px 22px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
             <div>
-              <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#0f172a', margin: '0 0 4px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Layers size={18} color="#047857" />
-                Synthesized Red-Team Test Suite ({synthesizedScenarios.length} Scenarios)
+              <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-title)', margin: '0 0 4px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Layers size={18} color="var(--color-primary)" />
+                <span>Synthesized Red-Team Test Suite ({synthesizedScenarios.length} Scenarios)</span>
               </h3>
-              <p style={{ margin: 0, fontSize: '0.8rem', color: '#64748b' }}>
+              <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)' }}>
                 Tailored operational inquiries and adversarial drift attacks synthesized specifically for <strong>{parsedRoleSpec.role_name}</strong>.
               </p>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
               {/* Policy Gate Badge */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#ecfdf5', border: '1px solid #a7f3d0', padding: '6px 14px', borderRadius: '8px', color: '#047857', fontSize: '0.8rem', fontWeight: 600 }}>
-                <Zap size={14} color="#047857" />
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: 'var(--color-safe-bg)',
+                  border: '1px solid var(--color-safe-border)',
+                  padding: '6px 14px',
+                  borderRadius: 'var(--radius-sm)',
+                  color: 'var(--color-safe-text)',
+                  fontSize: '0.8rem',
+                  fontWeight: 700
+                }}
+              >
+                <Zap size={14} color="var(--color-safe-text)" />
                 <span>Autonomous Gating Active</span>
               </div>
 
               {/* Regenerate Suite Button */}
-              <button
+              <motion.button
                 type="button"
                 onClick={handleRegenerateSuite}
                 disabled={isSynthesizing || isRunning}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="btn-outline"
                 title="Synthesize 5 fresh benign and adversarial test scenarios tailored to this agent"
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  padding: '8px 16px',
-                  fontSize: '0.82rem',
-                  fontWeight: 600,
-                  color: isSynthesizing ? '#94a3b8' : '#1e293b',
-                  background: isSynthesizing ? '#f8fafc' : '#ffffff',
-                  border: '1px solid #cbd5e1',
-                  borderRadius: '8px',
-                  cursor: (isSynthesizing || isRunning) ? 'not-allowed' : 'pointer',
-                  boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
-                  transition: 'all 0.15s ease'
-                }}
-                onMouseEnter={(e) => {
-                  if (!isSynthesizing && !isRunning) {
-                    e.currentTarget.style.backgroundColor = '#f8fafc';
-                    e.currentTarget.style.borderColor = '#94a3b8';
-                    e.currentTarget.style.transform = 'translateY(-1px)';
-                    e.currentTarget.style.boxShadow = '0 3px 8px rgba(0, 0, 0, 0.08)';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = isSynthesizing ? '#f8fafc' : '#ffffff';
-                  e.currentTarget.style.borderColor = '#cbd5e1';
-                  e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.05)';
-                }}
               >
-                <RotateCcw size={14} color={isSynthesizing ? '#94a3b8' : '#059669'} className={isSynthesizing ? 'animate-spin' : ''} />
-                <span>{isSynthesizing ? 'Synthesizing 5 Scenarios...' : 'Regenerate Suite'}</span>
-              </button>
+                <RotateCcw size={14} className={isSynthesizing ? 'animate-spin' : ''} />
+                <span>{isSynthesizing ? 'Synthesizing Suite...' : 'Regenerate Suite'}</span>
+              </motion.button>
 
               {/* Run Red-Team Suite Hero Button */}
-              <button
+              <motion.button
                 type="button"
                 onClick={handleRunEvaluation}
                 disabled={!parsedRoleSpec || isRunning || !isConnected}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  padding: '9px 22px',
-                  fontSize: '0.86rem',
-                  fontWeight: 700,
-                  letterSpacing: '-0.01em',
-                  color: '#ffffff',
-                  background: isRunning
-                    ? 'linear-gradient(135deg, #047857 0%, #065f46 100%)'
-                    : 'linear-gradient(135deg, #059669 0%, #047857 100%)',
-                  border: 'none',
-                  borderRadius: '8px',
-                  cursor: (!parsedRoleSpec || isRunning || !isConnected) ? 'not-allowed' : 'pointer',
-                  boxShadow: isRunning
-                    ? '0 0 0 3px rgba(16, 185, 129, 0.35)'
-                    : '0 4px 14px rgba(4, 120, 87, 0.35)',
-                  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
-                }}
-                onMouseEnter={(e) => {
-                  if (parsedRoleSpec && !isRunning && isConnected) {
-                    e.currentTarget.style.transform = 'translateY(-1px)';
-                    e.currentTarget.style.boxShadow = '0 6px 18px rgba(4, 120, 87, 0.42)';
-                    e.currentTarget.style.filter = 'brightness(1.05)';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = isRunning ? '0 0 0 3px rgba(16, 185, 129, 0.35)' : '0 4px 14px rgba(4, 120, 87, 0.35)';
-                  e.currentTarget.style.filter = 'none';
-                }}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="btn-voltsense"
               >
                 {isRunning ? (
                   <>
                     <div style={{ width: '14px', height: '14px', border: '2px solid #ffffff', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-                    <span>Evaluating Live Audit...</span>
+                    <span>Evaluating Live Suite...</span>
                   </>
                 ) : (
                   <>
                     <Play size={14} fill="#ffffff" strokeWidth={0} />
                     <span>Run Red-Team Suite</span>
                     {synthesizedScenarios.length > 0 && (
-                      <span style={{ fontSize: '0.72rem', background: 'rgba(255, 255, 255, 0.25)', padding: '1px 7px', borderRadius: '10px', marginLeft: '2px', fontWeight: 600 }}>
+                      <span style={{ fontSize: '0.72rem', background: 'rgba(255, 255, 255, 0.25)', padding: '1px 7px', borderRadius: '10px', marginLeft: '2px', fontWeight: 700 }}>
                         {synthesizedScenarios.length}
                       </span>
                     )}
                   </>
                 )}
-              </button>
+              </motion.button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Success Notification Banner on Scenario Regeneration */}
+      {/* Success Notification Banner */}
       {regenSuccess && (
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px',
-          padding: '11px 18px',
-          background: 'linear-gradient(135deg, #ecfdf5 0%, #f0fdf4 100%)',
-          border: '1px solid #6ee7b7',
-          borderRadius: '8px',
-          color: '#065f46',
-          fontSize: '0.86rem',
-          fontWeight: 600,
-          marginBottom: '18px',
-          boxShadow: '0 2px 6px rgba(5, 150, 105, 0.08)',
-          animation: 'fadeIn 0.2s ease'
-        }}>
-          <Sparkles size={16} color="#059669" />
+        <motion.div
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            padding: '12px 18px',
+            background: 'var(--color-safe-bg)',
+            border: '1px solid var(--color-safe-border)',
+            borderRadius: 'var(--radius-sm)',
+            color: 'var(--color-safe-text)',
+            fontSize: '0.86rem',
+            fontWeight: 700
+          }}
+        >
+          <Sparkles size={16} />
           <span>Successfully regenerated 5 fresh red-team vectors for <strong>{parsedRoleSpec?.role_name}</strong>!</span>
-        </div>
+        </motion.div>
       )}
 
       {/* Synthesized Scenario Cards */}
       {synthesizedScenarios.length > 0 && (
         <div
-          key={synthesizedScenarios.map(s => s.scenario_id).join(',')}
-          className="animate-fade-in"
-          style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '14px', marginBottom: '24px' }}
+          style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '14px' }}
         >
           {synthesizedScenarios.map((scn, idx) => {
             const isCurrentActive = customActiveTicket?.ticket_id === scn.scenario_id;
             return (
-              <div
+              <motion.div
                 key={scn.scenario_id || idx}
-                className="section-card"
+                className="vs-card"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.2, delay: idx * 0.04 }}
                 style={{
                   padding: '16px',
-                  borderColor: isCurrentActive ? '#047857' : (scn.is_adversarial ? '#fecaca' : '#bbf7d0'),
-                  backgroundColor: isCurrentActive ? '#f0fdf4' : '#ffffff',
-                  boxShadow: isCurrentActive ? '0 0 0 2px #047857' : 'none',
-                  position: 'relative',
-                  transition: 'all 0.2s ease'
+                  borderColor: isCurrentActive
+                    ? 'var(--color-primary)'
+                    : scn.is_adversarial
+                    ? 'rgba(239, 68, 68, 0.35)'
+                    : 'var(--border-card)',
+                  backgroundColor: isCurrentActive
+                    ? 'rgba(16, 185, 129, 0.08)'
+                    : 'var(--bg-card)',
+                  boxShadow: isCurrentActive ? '0 0 16px rgba(16, 185, 129, 0.25)' : 'none',
+                  position: 'relative'
                 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <span style={{ fontSize: '0.72rem', fontWeight: 700, fontFamily: 'monospace', color: '#64748b' }}>
+                  <span style={{ fontSize: '0.72rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: 'var(--text-dim)' }}>
                     {scn.scenario_id || `TCK-CUST-10${idx + 1}`}
                   </span>
                   <span
-                    className={`stat-pill ${scn.is_adversarial ? 'critical' : 'success'}`}
-                    style={{ fontSize: '0.68rem', padding: '2px 6px' }}
+                    className={`stat-pill ${scn.is_adversarial ? 'critical' : 'nominal'}`}
+                    style={{ fontSize: '0.66rem', padding: '2px 7px' }}
                   >
                     {scn.is_adversarial ? 'ADVERSARIAL ATTACK' : 'BENIGN OPERATIONAL'}
                   </span>
                 </div>
 
-                <h4 style={{ fontSize: '0.88rem', fontWeight: 700, color: '#0f172a', margin: '0 0 6px 0', lineHeight: 1.3 }}>
+                <h4 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-title)', margin: '0 0 6px 0', lineHeight: 1.3 }}>
                   {scn.title}
                 </h4>
 
-                <div style={{ fontSize: '0.76rem', color: '#475569', background: '#f8fafc', padding: '8px 10px', borderRadius: '4px', border: '1px solid #e2e8f0', minHeight: '68px', maxHeight: '110px', overflowY: 'auto', marginBottom: '8px', lineHeight: 1.4 }}>
+                <div
+                  style={{
+                    fontSize: '0.78rem',
+                    color: 'var(--text-body)',
+                    background: 'var(--bg-input)',
+                    padding: '8px 10px',
+                    borderRadius: '4px',
+                    border: '1px solid var(--border-subtle)',
+                    minHeight: '68px',
+                    maxHeight: '110px',
+                    overflowY: 'auto',
+                    marginBottom: '8px',
+                    lineHeight: 1.45,
+                    fontFamily: 'var(--font-mono)'
+                  }}
+                >
                   {scn.ticket_text}
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.72rem', color: '#64748b' }}>
-                  <span>Target: <strong style={{ color: '#047857', fontFamily: 'monospace' }}>{scn.target_tool || 'general'}</strong></span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                  <span>
+                    Target Tool: <strong style={{ color: 'var(--color-primary)', fontFamily: 'var(--font-mono)' }}>{scn.target_tool || 'general'}</strong>
+                  </span>
                   {scn.attack_vector && scn.attack_vector !== 'None' && (
-                    <span style={{ color: '#dc2626', fontWeight: 600 }}>{scn.attack_vector}</span>
+                    <span style={{ color: 'var(--color-danger-text)', fontWeight: 700 }}>{scn.attack_vector}</span>
                   )}
                 </div>
-              </div>
+              </motion.div>
             );
           })}
         </div>
@@ -569,104 +741,168 @@ export default function CustomAgentPage({
 
       {/* Live In-Flight Telemetry & Security Audit Scorecard */}
       {(isRunning || customSteps?.length > 0 || customScorecard) && (
-        <div className="section-card animate-fade-in" style={{ padding: '24px', backgroundColor: '#ffffff', borderColor: '#cbd5e1' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
+        <div className="vs-card" style={{ padding: '24px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '12px' }}>
             <div>
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#0f172a', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Terminal size={18} color="#047857" />
-                Live Red-Team In-Flight Telemetry &amp; Security Audit
+              <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-title)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Terminal size={18} color="var(--color-primary)" />
+                <span>Live Red-Team In-Flight Telemetry &amp; Security Audit</span>
               </h3>
-              <p style={{ margin: '3px 0 0', fontSize: '0.8rem', color: '#64748b' }}>
-                Real-time Dual-Tier Screening: Sub-20ms Cosine Distance + Groq Llama-3.3-70b MAD Taxonomy
+              <p style={{ margin: '3px 0 0', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                Real-time Dual-Tier Screening: Sub-20ms Cosine Distance + Groq LLM MAD Taxonomy
               </p>
             </div>
 
             {customScorecard && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span className={`stat-pill ${customScorecard.defense_rate >= 100 && customScorecard.compliance_rate >= 100 ? 'success' : (customScorecard.defense_rate >= 100 ? 'neutral' : 'critical')}`} style={{ fontSize: '0.85rem', padding: '6px 14px' }}>
-                  {customScorecard.overall_status}
-                </span>
-              </div>
+              <span
+                className={`stat-pill ${
+                  customScorecard.defense_rate >= 100 && customScorecard.compliance_rate >= 100
+                    ? 'nominal'
+                    : 'critical'
+                }`}
+                style={{ fontSize: '0.88rem', padding: '6px 14px' }}
+              >
+                {customScorecard.overall_status}
+              </span>
             )}
           </div>
 
-          {/* Scorecard Metrics Bar if finished */}
+          {/* Scorecard Metrics Bar */}
           {customScorecard && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '14px', marginBottom: '20px', padding: '16px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                gap: '16px',
+                marginBottom: '20px',
+                padding: '18px',
+                background: 'var(--bg-subtle)',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--border-card)'
+              }}
+            >
               <div>
-                <span style={{ fontSize: '0.72rem', color: '#64748b', textTransform: 'uppercase', fontWeight: 600 }}>Defense Neutralization</span>
-                <div style={{ fontSize: '1.35rem', fontWeight: 800, color: '#047857' }}>{customScorecard.defense_rate}%</div>
-                <span style={{ fontSize: '0.72rem', color: '#64748b' }}>{customScorecard.attacks_blocked} of {customScorecard.attacks_total} attacks neutralized</span>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)', textTransform: 'uppercase', fontWeight: 700 }}>
+                  Defense Neutralization
+                </span>
+                <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--color-safe-text)' }}>
+                  {customScorecard.defense_rate}%
+                </div>
+                <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                  {customScorecard.attacks_blocked} of {customScorecard.attacks_total} attacks neutralized
+                </span>
               </div>
               <div>
-                <span style={{ fontSize: '0.72rem', color: '#64748b', textTransform: 'uppercase', fontWeight: 600 }}>Benign Compliance</span>
-                <div style={{ fontSize: '1.35rem', fontWeight: 800, color: '#0369a1' }}>{customScorecard.compliance_rate}%</div>
-                <span style={{ fontSize: '0.72rem', color: '#64748b' }}>{customScorecard.benign_passed} of {customScorecard.benign_total} requests resolved</span>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)', textTransform: 'uppercase', fontWeight: 700 }}>
+                  Benign Compliance
+                </span>
+                <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--color-accent-cyan)' }}>
+                  {customScorecard.compliance_rate}%
+                </div>
+                <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                  {customScorecard.benign_passed} of {customScorecard.benign_total} requests resolved
+                </span>
               </div>
               <div>
-                <span style={{ fontSize: '0.72rem', color: '#64748b', textTransform: 'uppercase', fontWeight: 600 }}>Average Vector Distance</span>
-                <div style={{ fontSize: '1.35rem', fontWeight: 800, color: '#475569' }}>{customScorecard.avg_tier1_distance}</div>
-                <span style={{ fontSize: '0.72rem', color: '#64748b' }}>Threshold: 0.52</span>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)', textTransform: 'uppercase', fontWeight: 700 }}>
+                  Average Vector Distance
+                </span>
+                <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--text-title)', fontFamily: 'var(--font-mono)' }}>
+                  {customScorecard.avg_tier1_distance}
+                </div>
+                <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Baseline Threshold: 0.52</span>
               </div>
               <div>
-                <span style={{ fontSize: '0.72rem', color: '#64748b', textTransform: 'uppercase', fontWeight: 600 }}>MAD Codes Flagged</span>
-                <div style={{ fontSize: '1.05rem', fontWeight: 700, color: '#dc2626', marginTop: '3px' }}>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)', textTransform: 'uppercase', fontWeight: 700 }}>
+                  MAD Taxonomy Flags
+                </span>
+                <div style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--color-danger-text)', marginTop: '4px', fontFamily: 'var(--font-mono)' }}>
                   {customScorecard.mad_codes_detected?.length > 0 ? customScorecard.mad_codes_detected.join(', ') : 'None (Compliant)'}
                 </div>
-                <span style={{ fontSize: '0.72rem', color: '#64748b' }}>Adrian MAD Taxonomy</span>
+                <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Forensic Excursion Codes</span>
               </div>
             </div>
           )}
 
-          {/* Full Step-by-Step Execution Timeline (All 5 Steps Visible) */}
+          {/* Full Step-by-Step Execution Timeline */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {customSteps?.map((step, idx) => (
-              <div
+              <motion.div
                 key={idx}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
                 style={{
                   padding: '14px 16px',
-                  borderRadius: '6px',
-                  background: step.phase === 'BLOCKED' ? '#fef2f2' : (step.phase === 'COMPLETED' ? '#f0fdf4' : '#f8fafc'),
-                  border: `1px solid ${step.phase === 'BLOCKED' ? '#fecaca' : (step.phase === 'COMPLETED' ? '#bbf7d0' : '#e2e8f0')}`
+                  borderRadius: 'var(--radius-sm)',
+                  background: step.phase === 'BLOCKED' ? 'var(--color-danger-bg)' : 'var(--bg-subtle)',
+                  border: `1px solid ${step.phase === 'BLOCKED' ? 'var(--color-danger-border)' : 'var(--border-card)'}`
                 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#0f172a' }}>
+                    <span style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-title)', fontFamily: 'var(--font-mono)' }}>
                       Step {step.step_id || idx + 1}: {step.agent_name || parsedRoleSpec?.role_name}
                     </span>
                     <span
-                      className={`stat-pill ${step.phase === 'BLOCKED' ? 'critical' : (step.phase === 'COMPLETED' ? 'success' : 'neutral')}`}
+                      className={`stat-pill ${step.phase === 'BLOCKED' ? 'critical' : 'nominal'}`}
                       style={{ fontSize: '0.7rem', padding: '2px 8px' }}
                     >
-                      {step.phase === 'BLOCKED' ? '🛑 AUTO-QUARANTINED' : (step.phase === 'COMPLETED' ? '✅ COMPLIANT' : step.phase)}
+                      {step.phase === 'BLOCKED' ? '🛑 AUTO-QUARANTINED' : '✅ COMPLIANT'}
                     </span>
                   </div>
                   {step.tool_name && (
-                    <span style={{ fontSize: '0.74rem', padding: '2px 8px', background: '#ffffff', borderRadius: '4px', border: '1px solid #cbd5e1', fontFamily: 'monospace' }}>
+                    <span
+                      style={{
+                        fontSize: '0.74rem',
+                        padding: '2px 8px',
+                        background: 'var(--bg-input)',
+                        borderRadius: '4px',
+                        border: '1px solid var(--border-subtle)',
+                        fontFamily: 'var(--font-mono)',
+                        color: 'var(--color-primary)'
+                      }}
+                    >
                       Tool: <strong>{step.tool_name}</strong>
                     </span>
                   )}
                 </div>
 
                 {step.agent_thought && (
-                  <p style={{ margin: '0 0 8px 0', fontSize: '0.82rem', color: '#334155', fontStyle: 'italic', lineHeight: 1.4 }}>
+                  <p style={{ margin: '0 0 8px 0', fontSize: '0.82rem', color: 'var(--text-muted)', fontStyle: 'italic', lineHeight: 1.45 }}>
                     "{step.agent_thought}"
                   </p>
                 )}
 
                 {step.tool_arguments && Object.keys(step.tool_arguments).length > 0 && (
-                  <div style={{ fontSize: '0.74rem', color: '#64748b', fontFamily: 'monospace', background: '#ffffff', padding: '4px 8px', borderRadius: '4px', border: '1px solid #e2e8f0', marginBottom: '6px' }}>
+                  <div
+                    style={{
+                      fontSize: '0.74rem',
+                      color: 'var(--text-body)',
+                      fontFamily: 'var(--font-mono)',
+                      background: 'var(--bg-input)',
+                      padding: '6px 10px',
+                      borderRadius: '4px',
+                      border: '1px solid var(--border-subtle)',
+                      marginBottom: '6px'
+                    }}
+                  >
                     Arguments: {JSON.stringify(step.tool_arguments)}
                   </div>
                 )}
 
                 {step.tool_result && (
-                  <div style={{ fontSize: '0.78rem', color: step.phase === 'BLOCKED' ? '#991b1b' : '#047857', fontWeight: 600 }}>
+                  <div
+                    style={{
+                      fontSize: '0.78rem',
+                      color: step.phase === 'BLOCKED' ? 'var(--color-danger-text)' : 'var(--color-safe-text)',
+                      fontWeight: 700,
+                      fontFamily: 'var(--font-mono)'
+                    }}
+                  >
                     {step.tool_result}
                   </div>
                 )}
-              </div>
+              </motion.div>
             ))}
           </div>
         </div>

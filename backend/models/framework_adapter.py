@@ -7,7 +7,10 @@ from typing import Dict, Any, Tuple, List, Optional
 import json
 import yaml
 import re
+from pathlib import Path
 from .role_spec import AgentRoleSpec, ToolContract
+
+SAMPLE_DIR = Path(__file__).resolve().parent.parent.parent / "sample"
 
 SAMPLE_CREWAI_TEMPLATE = """# CrewAI Agent Specification
 name: FinancialAnalyst
@@ -173,6 +176,12 @@ def get_sample_templates() -> Dict[str, Dict[str, Any]]:
             "format": "json",
             "framework": "AEGIS Native",
             "raw_content": SAMPLE_AEGIS_TEMPLATE
+        },
+        "google": {
+            "name": "Google Agent - Logistics Coordinator",
+            "format": "json",
+            "framework": "CrewAI",
+            "raw_content": Path(SAMPLE_DIR / "google.json").read_text(encoding="utf-8") if (SAMPLE_DIR / "google.json").exists() else "{}"
         }
     }
 
